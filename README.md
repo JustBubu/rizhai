@@ -1,24 +1,30 @@
-# 日摘
+# Rizhai (日摘)
 
-把分散在几个 SVN 仓库里的提交备注，收成一篇可以交给钉钉的每日日志。
+**Turn scattered SVN commit messages into a DingTalk-ready daily log.**
 
-每天打开一次：选日期，拉取全部仓库，勾掉不该写进日报的提交，复制到钉钉。仓库多的时候，不用再一个个点开看备注。
+Rizhai is a small local web app. Once a day you pick a date, pull logs from every configured SVN repo, uncheck commits that should not appear in the report, then copy (or submit) the result to DingTalk.
 
-## 运行
+It is meant for people who still work with multiple SVN trunks and write DingTalk work reports by hand.
 
-需要本机有 Node.js 20+ 和 `svn` 命令。
+## Features
+
+- Pull commit messages from many SVN repositories in parallel
+- Filter by calendar day and timezone; “only mine” by SVN author
+- Personal vs team wording (team lines include the author)
+- Include / exclude individual commits; drafts autosave per date
+- Paste plain or XML `svn log` output when the network is blocked
+- Copy the full report, or submit via DingTalk Open API / group webhook
+- Sample data so you can preview the layout without real repos
+
+## Requirements
+
+- [Node.js](https://nodejs.org/) 20 or newer
+- An `svn` command on your `PATH`
 
 ```bash
-npm install
-npm run dev
-```
-
-浏览器打开 [http://127.0.0.1:43123](http://127.0.0.1:43123)。默认只监听本机回环地址。若确需局域网访问，可用 `npm run start:lan`（构建后），并注意日摘没有登录功能。
-
-```bash
-# Windows（任选其一）
-# - TortoiseSVN：安装时勾选 “command line client tools”，确认 svn 在 PATH
-# - 或安装 SlikSVN / VisualSVN，同样把 svn.exe 加入 PATH
+# Windows — pick one
+# - TortoiseSVN: enable “command line client tools”, ensure svn is on PATH
+# - SlikSVN or VisualSVN: install and add svn.exe to PATH
 
 # macOS
 brew install subversion
@@ -27,53 +33,100 @@ brew install subversion
 sudo apt install subversion
 ```
 
-## 每天怎么用
+## Quick start
 
-1. 添加仓库。地址指到平时提交的那一层，一般是 `trunk`。
-2. 填写 SVN 用户名和密码，或者改用这台电脑已经保存的凭据（推荐，避免密码出现在进程参数里）。
-3. 在设置里写下自己的 SVN 用户名，之后可以只看自己的提交。
-4. 选日期，点「拉取提交」。
-5. 取消不该出现在日志里的提交，补上未完成的事和需要协调的事。
-6. 点「复制全文」，粘贴到钉钉日志。
+```bash
+git clone https://github.com/ZhaoNan7/rizhai.git
+cd rizhai
+npm install
+npm run dev
+```
 
-连不上仓库时，在能访问 SVN 的电脑上执行（时区按设置里的偏移，默认东八区）：
+Open [http://127.0.0.1:43123](http://127.0.0.1:43123).
+
+Production-style run (still localhost only by default):
+
+```bash
+npm run build
+npm start
+```
+
+LAN bind (no login — do not expose to the public internet):
+
+```bash
+npm run build
+npm run start:lan
+```
+
+## Daily workflow
+
+1. Add each project URL (usually a `trunk` or the path you actually commit to).
+2. Enter SVN username/password, or prefer **saved credentials on this machine** (safer: password is not passed on the process command line).
+3. In Settings, set your SVN username so “only mine” works.
+4. Pick a date → **Pull commits**.
+5. Uncheck noise; fill unfinished / coordination / tomorrow sections.
+6. **Copy full text** into DingTalk, or use the submit / group-robot actions.
+
+### Offline paste fallback
+
+On a machine that can reach SVN:
 
 ```bash
 svn log -v -r {2026-10-27T00:00:00+08:00}:{2026-10-27T23:59:59+08:00} https://svn.example.com/order/trunk
 ```
 
-把输出贴进对应仓库的「粘贴 svn log」。中文或英文的 `svn log` 文本都可以。粘贴后会自动按当前勾选重写「今日完成」。
+Paste the output into that repo’s “Paste svn log” dialog. Chinese and English `svn log` text both work. After paste, the generated “today’s work” section refreshes automatically (unless you have hand-edited it).
 
-个人日志只写备注本身。团队日志会在每条前面加上作者。
+Adjust the offset to match Settings → timezone (default `+08:00`).
 
-## 直接提交到钉钉
+## DingTalk integration
 
-复制粘贴不需要任何钉钉权限。想从日摘里直接生成一条日志时：
+Copy-paste needs no DingTalk permissions.
 
-1. 在[钉钉开放平台](https://open.dingtalk.com/)创建一个企业内部应用。
-2. 开通「查询企业员工日志」和「管理员工日志数据」，然后发布应用。
-3. 把 AppKey、AppSecret，以及你自己的 userId 填到设置里。
-4. 模板名称要和日志模板完全一致，例如「日报」，再点「保存并读取模板」。
-5. 核对每个字段对应哪一栏，回到今天的页面点「提交到钉钉」。
+### Personal work report (Open API)
 
-钉钉这个接口每个文本字段最多 1000 字，超出的部分会被截断。超过时请改用复制粘贴。模板里的图片、附件等非文本字段无法通过接口填写。
+1. Create an internal enterprise app on the [DingTalk Open Platform](https://open.dingtalk.com/).
+2. Enable scopes for querying and managing employee reports, then publish the app.
+3. Put AppKey, AppSecret, and your `userId` in Settings.
+4. Set the template name exactly (e.g. `日报`), then **Save and load template**.
+5. Map each template field to a Rizhai section; submit from the main page.
 
-「发到群里」用的是群自定义机器人，发的是群消息，不是个人工作日志。
+Notes:
 
-## 数据放在哪
+- Each text field is limited to **1000 characters** on the API; truncate risk → use copy-paste instead.
+- Non-text fields (images, attachments) cannot be filled via the API.
 
-仓库地址、密码、钉钉密钥和每天的草稿都在本机 `data/` 目录，已经从 git 里忽略。日摘没有登录功能，不要把端口暴露到公网。
+### Group robot
 
-可选环境变量：
+“Send to group” uses a custom group robot webhook. That posts a group message, not a personal work report.
 
-| 变量 | 作用 |
-|------|------|
-| `RIZHAI_DATA_DIR` | 自定义数据目录 |
-| `RIZHAI_SVN_TRUST_CERT` | SVN 证书信任项，默认 `unknown-ca`；设为 `none` 关闭 |
-| `RIZHAI_ALLOW_SVN_FILE_URL=1` | 允许 `file:` 仓库地址（生产默认禁止） |
+## Data & privacy
 
-## 测试
+Repos, passwords, DingTalk secrets, and daily drafts live under a local `data/` directory (gitignored). There is **no authentication**. Keep the process on localhost unless you fully trust the network.
 
-```bash
-npm test
-```
+Optional environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `RIZHAI_DATA_DIR` | Custom data directory |
+| `RIZHAI_SVN_TRUST_CERT` | SVN cert trust failures (default `unknown-ca`; `none` to disable) |
+| `RIZHAI_ALLOW_SVN_FILE_URL=1` | Allow `file:` repo URLs (blocked by default outside development) |
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Dev server on `127.0.0.1:43123` |
+| `npm run build` | Production build |
+| `npm start` | Serve build on localhost |
+| `npm run start:lan` | Serve build on `0.0.0.0` |
+| `npm test` | Unit tests |
+| `npm run lint` | ESLint |
+
+## Stack
+
+Next.js (App Router), React, Tailwind CSS. SVN is invoked as a local CLI; nothing is hosted for you.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
