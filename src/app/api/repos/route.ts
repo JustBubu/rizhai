@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beginRequest, errorResponse } from "@/lib/http";
 import { toPublicRepo } from "@/lib/public";
 import { repoFromInput, type RepoInput } from "@/lib/repo-input";
-import { listRepos, saveRepos } from "@/lib/store";
+import { listRepos, updateRepos } from "@/lib/store";
 
 export async function GET() {
   try {
@@ -18,12 +18,13 @@ export async function POST(request: Request) {
   try {
     await beginRequest();
     const body = (await request.json()) as RepoInput;
-    const repos = await listRepos();
-    if (repos.length >= 30) throw new Error("最多添加 30 个仓库。");
-    const repo = repoFromInput(body, randomUUID());
-    repos.push(repo);
-    await saveRepos(repos);
-    return Response.json({ repo: toPublicRepo(repo) });
+    let created = null as ReturnType<typeof repoFromInput> | null;
+    await updateRepos((repos) => {
+      if (repos.length >= 30) throw new Error("最多添加 30 个仓库。");
+      created = repoFromInput(body, randomUUID());
+      return [...repos, created];
+    });
+    return Response.json({ repo: toPublicRepo(created!) });
   } catch (error) {
     return errorResponse(error);
   }

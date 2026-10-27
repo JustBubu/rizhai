@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { DigestApp } from "@/components/digest-app";
 import { calendarDate } from "@/lib/dates";
+import { loadSettings } from "@/lib/store";
 
 export default function Page() {
   return (
@@ -13,5 +14,6 @@ export default function Page() {
 
 async function Today() {
   await connection();
-  return <DigestApp initialToday={calendarDate("+08:00")} />;
+  const settings = await loadSettings();
+  return <DigestApp initialToday={calendarDate(settings.timezone)} />;
 }

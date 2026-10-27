@@ -1,7 +1,7 @@
 import { beginRequest, errorResponse } from "@/lib/http";
 import { toPublicSettings } from "@/lib/public";
 import { isTimezone } from "@/lib/dates";
-import { loadSettings, saveSettings } from "@/lib/store";
+import { loadSettings, updateSettings } from "@/lib/store";
 import type { FieldBinding, LogSection, Settings } from "@/lib/types";
 
 type Incoming = Partial<Omit<Settings, "dingtalk">> & {
@@ -70,56 +70,57 @@ export async function PUT(request: Request) {
   try {
     await beginRequest();
     const body = (await request.json()) as Incoming;
-    const current = await loadSettings();
-    const timezone = typeof body.timezone === "string" && isTimezone(body.timezone) ? body.timezone : current.timezone;
-    const incomingDing = body.dingtalk ?? {};
-    const appSecret =
-      typeof incomingDing.appSecret === "string" && incomingDing.appSecret.length > 0
-        ? incomingDing.appSecret
-        : current.dingtalk.appSecret;
-    const webhookSecret =
-      typeof incomingDing.webhookSecret === "string" && incomingDing.webhookSecret.length > 0
-        ? incomingDing.webhookSecret
-        : current.dingtalk.webhookSecret;
-    const fields = Array.isArray(incomingDing.fields) ? incomingDing.fields : current.dingtalk.fields;
-    const bindings: Settings["dingtalk"]["bindings"] = {};
-    const source = incomingDing.bindings ?? current.dingtalk.bindings;
-    for (const [key, binding] of Object.entries(source)) {
-      bindings[key.slice(0, 40)] = cleanBinding(binding);
-    }
-    const next: Settings = {
-      myAuthors: body.myAuthors === undefined ? current.myAuthors : cleanAuthors(body.myAuthors),
-      timezone,
-      includeRevision: body.includeRevision ?? current.includeRevision,
-      showEmptyRepos: body.showEmptyRepos ?? current.showEmptyRepos,
-      logMode: body.logMode === "team" ? "team" : body.logMode === "personal" ? "personal" : current.logMode,
-      onlyMine: body.onlyMine ?? current.onlyMine,
-      sections: body.sections === undefined ? current.sections : cleanSections(body.sections, current.sections),
-      dingtalk: {
-        appKey: String(incomingDing.appKey ?? current.dingtalk.appKey).trim().slice(0, 120),
-        appSecret,
-        userId: String(incomingDing.userId ?? current.dingtalk.userId).trim().slice(0, 80),
-        templateName: String(incomingDing.templateName ?? current.dingtalk.templateName).trim().slice(0, 40) || "日报",
-        templateId: String(incomingDing.templateId ?? current.dingtalk.templateId).trim().slice(0, 80),
-        fields: fields
-          .filter((field) => field && field.fieldName)
-          .slice(0, 20)
-          .map((field) => ({
-            fieldName: String(field.fieldName).slice(0, 40),
-            sort: Number(field.sort ?? 0),
-            type: Number(field.type ?? 1),
-          })),
-        bindings,
-        toChat: incomingDing.toChat ?? current.dingtalk.toChat,
-        webhook: String(incomingDing.webhook ?? current.dingtalk.webhook).trim().slice(0, 500),
-        webhookSecret,
-        webhookKeyword: String(incomingDing.webhookKeyword ?? current.dingtalk.webhookKeyword).trim().slice(0, 40),
-      },
-    };
-    if (next.dingtalk.webhook && !next.dingtalk.webhook.startsWith("https://oapi.dingtalk.com/robot/send")) {
-      throw new Error("群机器人地址应以 https://oapi.dingtalk.com/robot/send 开头。");
-    }
-    await saveSettings(next);
+    const next = await updateSettings((current) => {
+      const timezone = typeof body.timezone === "string" && isTimezone(body.timezone) ? body.timezone : current.timezone;
+      const incomingDing = body.dingtalk ?? {};
+      const appSecret =
+        typeof incomingDing.appSecret === "string" && incomingDing.appSecret.length > 0
+          ? incomingDing.appSecret
+          : current.dingtalk.appSecret;
+      const webhookSecret =
+        typeof incomingDing.webhookSecret === "string" && incomingDing.webhookSecret.length > 0
+          ? incomingDing.webhookSecret
+          : current.dingtalk.webhookSecret;
+      const fields = Array.isArray(incomingDing.fields) ? incomingDing.fields : current.dingtalk.fields;
+      const bindings: Settings["dingtalk"]["bindings"] = {};
+      const source = incomingDing.bindings ?? current.dingtalk.bindings;
+      for (const [key, binding] of Object.entries(source)) {
+        bindings[key.slice(0, 40)] = cleanBinding(binding);
+      }
+      const merged: Settings = {
+        myAuthors: body.myAuthors === undefined ? current.myAuthors : cleanAuthors(body.myAuthors),
+        timezone,
+        includeRevision: body.includeRevision ?? current.includeRevision,
+        showEmptyRepos: body.showEmptyRepos ?? current.showEmptyRepos,
+        logMode: body.logMode === "team" ? "team" : body.logMode === "personal" ? "personal" : current.logMode,
+        onlyMine: body.onlyMine ?? current.onlyMine,
+        sections: body.sections === undefined ? current.sections : cleanSections(body.sections, current.sections),
+        dingtalk: {
+          appKey: String(incomingDing.appKey ?? current.dingtalk.appKey).trim().slice(0, 120),
+          appSecret,
+          userId: String(incomingDing.userId ?? current.dingtalk.userId).trim().slice(0, 80),
+          templateName: String(incomingDing.templateName ?? current.dingtalk.templateName).trim().slice(0, 40) || "日报",
+          templateId: String(incomingDing.templateId ?? current.dingtalk.templateId).trim().slice(0, 80),
+          fields: fields
+            .filter((field) => field && field.fieldName)
+            .slice(0, 20)
+            .map((field) => ({
+              fieldName: String(field.fieldName).slice(0, 40),
+              sort: Number(field.sort ?? 0),
+              type: Number(field.type ?? 1),
+            })),
+          bindings,
+          toChat: incomingDing.toChat ?? current.dingtalk.toChat,
+          webhook: String(incomingDing.webhook ?? current.dingtalk.webhook).trim().slice(0, 500),
+          webhookSecret,
+          webhookKeyword: String(incomingDing.webhookKeyword ?? current.dingtalk.webhookKeyword).trim().slice(0, 40),
+        },
+      };
+      if (merged.dingtalk.webhook && !merged.dingtalk.webhook.startsWith("https://oapi.dingtalk.com/robot/send")) {
+        throw new Error("群机器人地址应以 https://oapi.dingtalk.com/robot/send 开头。");
+      }
+      return merged;
+    });
     return Response.json({ settings: toPublicSettings(next) });
   } catch (error) {
     return errorResponse(error);

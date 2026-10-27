@@ -5,6 +5,7 @@ type TokenResponse = {
   errcode?: number;
   errmsg?: string;
   access_token?: string;
+  expires_in?: number;
 };
 
 type DingResponse = {
@@ -14,17 +15,31 @@ type DingResponse = {
 };
 
 const DING_CHAR_LIMIT = 1000;
+const DING_FETCH_MS = 15_000;
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 export function dingCharLimit(): number {
   return DING_CHAR_LIMIT;
 }
 
+/** 测试或密钥轮换时清空缓存。 */
+export function clearAccessTokenCache(): void {
+  tokenCache.clear();
+}
+
+async function dingFetch(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(DING_FETCH_MS) });
+}
+
 async function dingPost(path: string, token: string, body: unknown): Promise<DingResponse> {
-  const response = await fetch(`https://oapi.dingtalk.com${path}?access_token=${encodeURIComponent(token)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const response = await dingFetch(
+    `https://oapi.dingtalk.com${path}?access_token=${encodeURIComponent(token)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
   const data = (await response.json()) as DingResponse;
   if (!response.ok || (data.errcode && data.errcode !== 0)) {
     throw new Error(data.errmsg || `钉钉接口返回 ${response.status}`);
@@ -33,14 +48,21 @@ async function dingPost(path: string, token: string, body: unknown): Promise<Din
 }
 
 export async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
+  const cacheKey = `${appKey}\0${appSecret}`;
+  const cached = tokenCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now() + 60_000) {
+    return cached.token;
+  }
   const url = new URL("https://oapi.dingtalk.com/gettoken");
   url.searchParams.set("appkey", appKey);
   url.searchParams.set("appsecret", appSecret);
-  const response = await fetch(url);
+  const response = await dingFetch(url.toString());
   const data = (await response.json()) as TokenResponse;
   if (!response.ok || data.errcode || !data.access_token) {
     throw new Error(data.errmsg || "拿不到钉钉 access_token，请核对 AppKey 和 AppSecret。");
   }
+  const ttlMs = Math.max(60, Number(data.expires_in ?? 7200)) * 1000;
+  tokenCache.set(cacheKey, { token: data.access_token, expiresAt: Date.now() + ttlMs });
   return data.access_token;
 }
 
@@ -71,10 +93,6 @@ export async function getTemplateByName(token: string, userId: string, templateN
 export function guessBinding(fieldName: string, sections: LogSection[]): FieldBinding {
   const exact = sections.find((section) => section.title === fieldName);
   if (exact) return { mode: "section", sectionId: exact.id };
-  if (/今日|完成|工作内容/.test(fieldName)) {
-    const generated = sections.find((section) => section.role === "generated");
-    if (generated) return { mode: "section", sectionId: generated.id };
-  }
   const rules: [RegExp, RegExp][] = [
     [/未完成|待办/, /未完成|待办/],
     [/协调|协助|问题/, /协调|协助|问题/],
@@ -84,6 +102,11 @@ export function guessBinding(fieldName: string, sections: LogSection[]): FieldBi
     if (!fieldRule.test(fieldName)) continue;
     const section = sections.find((item) => sectionRule.test(item.title));
     if (section) return { mode: "section", sectionId: section.id };
+  }
+  // 「未完成」含「完成」，须在上面的规则之后再匹配今日完成类字段。
+  if (/今日|工作内容/.test(fieldName) || (/完成/.test(fieldName) && !/未完成/.test(fieldName))) {
+    const generated = sections.find((section) => section.role === "generated");
+    if (generated) return { mode: "section", sectionId: generated.id };
   }
   return { mode: "none" };
 }
@@ -151,7 +174,7 @@ export async function sendWebhook(input: {
   const url = signWebhook(input.webhook, input.secret);
   const keyword = input.keyword.trim();
   const text = keyword && !input.text.includes(keyword) ? `${keyword}\n\n${input.text}` : input.text;
-  const response = await fetch(url, {
+  const response = await dingFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -13,9 +13,13 @@ npm install
 npm run dev
 ```
 
-浏览器打开 [http://127.0.0.1:43123](http://127.0.0.1:43123)。
+浏览器打开 [http://127.0.0.1:43123](http://127.0.0.1:43123)。默认只监听本机回环地址。若确需局域网访问，可用 `npm run start:lan`（构建后），并注意日摘没有登录功能。
 
 ```bash
+# Windows（任选其一）
+# - TortoiseSVN：安装时勾选 “command line client tools”，确认 svn 在 PATH
+# - 或安装 SlikSVN / VisualSVN，同样把 svn.exe 加入 PATH
+
 # macOS
 brew install subversion
 
@@ -26,19 +30,19 @@ sudo apt install subversion
 ## 每天怎么用
 
 1. 添加仓库。地址指到平时提交的那一层，一般是 `trunk`。
-2. 填写 SVN 用户名和密码，或者改用这台电脑已经保存的凭据。
+2. 填写 SVN 用户名和密码，或者改用这台电脑已经保存的凭据（推荐，避免密码出现在进程参数里）。
 3. 在设置里写下自己的 SVN 用户名，之后可以只看自己的提交。
 4. 选日期，点「拉取提交」。
 5. 取消不该出现在日志里的提交，补上未完成的事和需要协调的事。
 6. 点「复制全文」，粘贴到钉钉日志。
 
-连不上仓库时，在能访问 SVN 的电脑上执行：
+连不上仓库时，在能访问 SVN 的电脑上执行（时区按设置里的偏移，默认东八区）：
 
 ```bash
-svn log -v -r {2026-10-27}:{2026-10-28} https://svn.example.com/order/trunk
+svn log -v -r {2026-10-27T00:00:00+08:00}:{2026-10-27T23:59:59+08:00} https://svn.example.com/order/trunk
 ```
 
-把输出贴进对应仓库的「粘贴 svn log」。中文或英文的 `svn log` 文本都可以。
+把输出贴进对应仓库的「粘贴 svn log」。中文或英文的 `svn log` 文本都可以。粘贴后会自动按当前勾选重写「今日完成」。
 
 个人日志只写备注本身。团队日志会在每条前面加上作者。
 
@@ -59,6 +63,14 @@ svn log -v -r {2026-10-27}:{2026-10-28} https://svn.example.com/order/trunk
 ## 数据放在哪
 
 仓库地址、密码、钉钉密钥和每天的草稿都在本机 `data/` 目录，已经从 git 里忽略。日摘没有登录功能，不要把端口暴露到公网。
+
+可选环境变量：
+
+| 变量 | 作用 |
+|------|------|
+| `RIZHAI_DATA_DIR` | 自定义数据目录 |
+| `RIZHAI_SVN_TRUST_CERT` | SVN 证书信任项，默认 `unknown-ca`；设为 `none` 关闭 |
+| `RIZHAI_ALLOW_SVN_FILE_URL=1` | 允许 `file:` 仓库地址（生产默认禁止） |
 
 ## 测试
 

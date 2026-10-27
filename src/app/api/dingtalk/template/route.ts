@@ -1,7 +1,7 @@
 import { beginRequest, errorResponse } from "@/lib/http";
 import { getAccessToken, getTemplateByName, guessBinding } from "@/lib/dingtalk";
 import { toPublicSettings } from "@/lib/public";
-import { loadSettings, saveSettings } from "@/lib/store";
+import { loadSettings, updateSettings } from "@/lib/store";
 
 export async function POST(request: Request) {
   try {
@@ -23,24 +23,25 @@ export async function POST(request: Request) {
     const token = await getAccessToken(appKey, appSecret);
     const template = await getTemplateByName(token, userId, templateName);
     if (!template.id) throw new Error("钉钉没有返回模板编号。");
-    const bindings = { ...current.dingtalk.bindings };
-    for (const field of template.fields) {
-      if (!bindings[field.fieldName]) bindings[field.fieldName] = guessBinding(field.fieldName, current.sections);
-    }
-    const next = {
-      ...current,
-      dingtalk: {
-        ...current.dingtalk,
-        appKey,
-        appSecret,
-        userId,
-        templateName: template.name || templateName,
-        templateId: template.id,
-        fields: template.fields,
-        bindings,
-      },
-    };
-    await saveSettings(next);
+    const next = await updateSettings((latest) => {
+      const bindings = { ...latest.dingtalk.bindings };
+      for (const field of template.fields) {
+        if (!bindings[field.fieldName]) bindings[field.fieldName] = guessBinding(field.fieldName, latest.sections);
+      }
+      return {
+        ...latest,
+        dingtalk: {
+          ...latest.dingtalk,
+          appKey,
+          appSecret,
+          userId,
+          templateName: template.name || templateName,
+          templateId: template.id,
+          fields: template.fields,
+          bindings,
+        },
+      };
+    });
     return Response.json({ settings: toPublicSettings(next) });
   } catch (error) {
     return errorResponse(error);
