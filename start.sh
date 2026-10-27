@@ -12,12 +12,30 @@ if [[ ! -d node_modules ]]; then
   npm install
 fi
 
-echo "Starting Rizhai at http://127.0.0.1:43123"
-url="http://127.0.0.1:43123"
-if command -v open >/dev/null 2>&1; then
-  (sleep 2 && open "$url") &
-elif command -v xdg-open >/dev/null 2>&1; then
-  (sleep 2 && xdg-open "$url") &
+open_browser() {
+  local url="http://127.0.0.1:43123"
+  if command -v open >/dev/null 2>&1; then
+    open "$url"
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url"
+  fi
+}
+
+if curl -fsS --max-time 2 "http://127.0.0.1:43123/" >/dev/null 2>&1; then
+  echo "Rizhai is already running at http://127.0.0.1:43123"
+  open_browser
+  exit 0
 fi
+
+echo "Starting Rizhai at http://127.0.0.1:43123"
+(
+  for _ in $(seq 1 90); do
+    if curl -fsS --max-time 2 "http://127.0.0.1:43123/" >/dev/null 2>&1; then
+      open_browser
+      exit 0
+    fi
+    sleep 1
+  done
+) &
 
 npm run dev

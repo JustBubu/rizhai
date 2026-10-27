@@ -47,7 +47,7 @@ Then start it the easy way:
 | **Windows** | Double-click `start.cmd` |
 | **macOS / Linux** | `chmod +x start.sh && ./start.sh` |
 
-The script installs dependencies on first run, opens the browser, and serves [http://127.0.0.1:43123](http://127.0.0.1:43123).
+The script installs dependencies on first run, waits until the server is ready, then opens [http://127.0.0.1:43123](http://127.0.0.1:43123). If Rizhai is already running, it just opens the browser again.
 
 Same thing from a terminal after the first install:
 
