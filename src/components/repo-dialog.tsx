@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useLocale } from "@/components/locale-provider";
 import { ApiError, api } from "@/lib/client";
 import type { RepoPublic } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ export function RepoDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: (repo: RepoPublic) => void;
 }) {
+  const { t } = useLocale();
   const editing = mode.kind === "edit" ? mode.repo : null;
   const [name, setName] = useState(editing?.name ?? "");
   const [url, setUrl] = useState(editing?.url ?? "");
@@ -51,11 +53,11 @@ export function RepoDialog({
         method: editing ? "PATCH" : "POST",
         body: JSON.stringify(payload),
       });
-      toast.success(editing ? "仓库已更新" : "仓库已添加");
+      toast.success(editing ? t("repoUpdated") : t("repoAdded"));
       onSaved(data.repo);
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "没有保存成功");
+      toast.error(error instanceof ApiError ? error.message : t("toastRepoSaveFail"));
     } finally {
       setSaving(false);
     }
@@ -65,10 +67,8 @@ export function RepoDialog({
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editing ? "编辑仓库" : "添加仓库"}</DialogTitle>
-          <DialogDescription>
-            地址指到你平时提交的那一层，多数项目是 trunk。账号只写在这台电脑上。
-          </DialogDescription>
+          <DialogTitle>{editing ? t("repoEdit") : t("repoAdd")}</DialogTitle>
+          <DialogDescription>{t("repoDialogDesc")}</DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-3"
@@ -78,17 +78,17 @@ export function RepoDialog({
           }}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor="repo-name">名称</Label>
+            <Label htmlFor="repo-name">{t("repoName")}</Label>
             <Input
               id="repo-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="订单中心"
+              placeholder={t("repoNamePlaceholder")}
               autoFocus
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="repo-url">SVN 地址</Label>
+            <Label htmlFor="repo-url">{t("repoUrl")}</Label>
             <Input
               id="repo-url"
               value={url}
@@ -105,16 +105,14 @@ export function RepoDialog({
               onChange={(event) => setUseSavedAuth(event.target.checked)}
             />
             <span>
-              使用这台电脑已经保存的 SVN 凭据
-              <span className="mt-0.5 block text-muted-foreground">
-                你在终端里登录过这个仓库时选这个。日摘不会再存一份密码。
-              </span>
+              {t("useSavedAuth")}
+              <span className="mt-0.5 block text-muted-foreground">{t("useSavedAuthHint")}</span>
             </span>
           </label>
           {useSavedAuth ? null : (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5">
-                <Label htmlFor="repo-user">用户名</Label>
+                <Label htmlFor="repo-user">{t("username")}</Label>
                 <Input
                   id="repo-user"
                   value={username}
@@ -124,13 +122,13 @@ export function RepoDialog({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="repo-pass">密码</Label>
+                <Label htmlFor="repo-pass">{t("password")}</Label>
                 <Input
                   id="repo-pass"
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder={editing?.hasPassword ? "已保存，留空则不改" : ""}
+                  placeholder={editing?.hasPassword ? t("passwordKept") : ""}
                   autoComplete="new-password"
                 />
               </div>
@@ -138,10 +136,10 @@ export function RepoDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              取消
+              {t("cancel")}
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "保存中…" : "保存"}
+              {saving ? t("saving") : t("save")}
             </Button>
           </DialogFooter>
         </form>

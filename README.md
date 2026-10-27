@@ -9,6 +9,7 @@ It is meant for people who still work with multiple SVN trunks and write DingTal
 ## Features
 
 - Pull commit messages from many SVN repositories in parallel
+- **Chinese / English UI** (header language switch; saved in settings)
 - Filter by calendar day and timezone; “only mine” by SVN author
 - Personal vs team wording (team lines include the author)
 - Include / exclude individual commits; drafts autosave per date

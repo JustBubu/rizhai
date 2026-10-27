@@ -37,6 +37,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocale } from "@/components/locale-provider";
 import { useDigestApp, type Panel } from "@/hooks/use-digest-app";
 import { calendarDate, formatClock, formatLongDate, shiftDate, svnRevisionRange } from "@/lib/dates";
 import { actionLabel, commitKey, composeFullLog, countChars, matchesAuthor, repoHost } from "@/lib/summarize";
@@ -92,6 +93,8 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
     toggleEnabled,
     removeRepo,
     applyPaste,
+    locale,
+    t,
   } = app;
 
   return (
@@ -102,26 +105,26 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
             type="button"
             variant="outline"
             size="icon"
-            aria-label="前一天"
+            aria-label={t("prevDay")}
             onClick={() => changeDate(shiftDate(date, -1))}
           >
             <ChevronLeftIcon />
           </Button>
           <div className="px-1 text-center">
-            <div className="font-serif text-base whitespace-nowrap sm:text-xl">{formatLongDate(date)}</div>
+            <div className="font-serif text-base whitespace-nowrap sm:text-xl">{formatLongDate(date, locale)}</div>
           </div>
           <Button
             type="button"
             variant="outline"
             size="icon"
-            aria-label="后一天"
+            aria-label={t("nextDay")}
             onClick={() => changeDate(shiftDate(date, 1))}
           >
             <ChevronRightIcon />
           </Button>
           <Input
             type="date"
-            aria-label="选择日期"
+            aria-label={t("pickDate")}
             value={date}
             onChange={(event) => changeDate(event.target.value)}
             className="ml-1 w-[9.5rem]"
@@ -132,7 +135,7 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
             size="sm"
             onClick={() => changeDate(calendarDate(settings?.timezone ?? "+08:00"))}
           >
-            今天
+            {t("today")}
           </Button>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -143,15 +146,15 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                 if (!settings) return;
                 void persist({ ...settings, onlyMine: checked === true }, true);
               }}
-              aria-label="只看我的提交"
+              aria-label={t("onlyMine")}
             />
-            只看我的
+            {t("onlyMine")}
           </label>
           <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
             {(
               [
-                ["personal", "个人"],
-                ["team", "团队"],
+                ["personal", t("personal")],
+                ["team", t("team")],
               ] as const
             ).map(([mode, label]) => (
               <button
@@ -172,7 +175,7 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
           </div>
           <Button type="button" size="lg" onClick={() => void pull()} disabled={fetching || !repos?.some((repo) => repo.enabled)}>
             <RefreshCwIcon className={fetching ? "animate-spin" : undefined} />
-            {fetching ? "正在拉取…" : "拉取提交"}
+            {fetching ? t("pulling") : t("pull")}
           </Button>
         </div>
       </div>
@@ -188,45 +191,45 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
             setAuthorDraft("");
           }}
         >
-          <span>只看我的需要知道你的 SVN 用户名。</span>
+          <span>{t("needAuthor")}</span>
           <Input
             value={authorDraft}
             onChange={(event) => setAuthorDraft(event.target.value)}
-            placeholder="例如 zhangsan"
+            placeholder={t("authorPlaceholder")}
             className="h-8 w-40"
           />
           <Button type="submit" size="sm">
-            就是我
+            {t("thatsMe")}
           </Button>
         </form>
       ) : null}
 
       <Tabs value={panel} onValueChange={(value) => setPanel(value as Panel)} className="mt-3 lg:hidden">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="repos">仓库</TabsTrigger>
-          <TabsTrigger value="commits">提交</TabsTrigger>
-          <TabsTrigger value="log">日志</TabsTrigger>
+          <TabsTrigger value="repos">{t("panelRepos")}</TabsTrigger>
+          <TabsTrigger value="commits">{t("panelCommits")}</TabsTrigger>
+          <TabsTrigger value="log">{t("panelLog")}</TabsTrigger>
         </TabsList>
       </Tabs>
 
       <div className="mt-3 grid gap-3 lg:h-[calc(100dvh-8.5rem)] lg:grid-cols-[17rem_minmax(0,1fr)_23.5rem]">
         <section className={columnClass(panel, "repos")}>
           <ColumnHeading
-            title="仓库"
+            title={t("panelRepos")}
             extra={
               <Button type="button" size="sm" variant="outline" onClick={() => setDialogMode({ kind: "create" })}>
                 <PlusIcon />
-                添加
+                {t("add")}
               </Button>
             }
           />
           <div className="min-h-0 flex-1 space-y-1.5 overflow-auto p-2">
             {loadError ? <p className="px-1 text-sm text-destructive">{loadError}</p> : null}
-            {repos === null && !loadError ? <p className="px-1 text-sm text-muted-foreground">正在读取本机的仓库…</p> : null}
+            {repos === null && !loadError ? <p className="px-1 text-sm text-muted-foreground">{t("loadingRepos")}</p> : null}
             {repos?.length === 0 ? (
               <div className="px-1 py-6 text-sm leading-6 text-muted-foreground">
-                <p className="font-medium text-foreground">先把要看的项目加进来</p>
-                <p className="mt-1">每个仓库一条地址。之后每天打开日摘，选日期，点一次拉取。</p>
+                <p className="font-medium text-foreground">{t("emptyReposTitle")}</p>
+                <p className="mt-1">{t("emptyReposBody")}</p>
               </div>
             ) : null}
             {repos?.map((repo) => {
@@ -245,20 +248,20 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                       <StatusDot result={result} enabled={repo.enabled} />
                       <span className="truncate font-medium">{repo.name}</span>
                     </span>
-                    <span className="mt-0.5 block truncate pl-4 text-xs text-muted-foreground">{repoHost(repo.url)}</span>
+                    <span className="mt-0.5 block truncate pl-4 text-xs text-muted-foreground">{repoHost(repo.url, locale)}</span>
                   </button>
                   <div className="mt-1 flex items-center gap-1 px-1">
                     <Switch
                       size="sm"
                       checked={repo.enabled}
                       onCheckedChange={(checked) => void toggleEnabled(repo, checked === true)}
-                      aria-label={`${repo.enabled ? "停用" : "启用"}${repo.name}`}
+                      aria-label={`${repo.enabled ? t("disableRepo") : t("enableRepo")} ${repo.name}`}
                     />
-                    <span className="text-xs text-muted-foreground">{repo.enabled ? "参与拉取" : "已停用"}</span>
-                    <Button type="button" size="icon-xs" variant="ghost" className="ml-auto" aria-label="编辑仓库" onClick={() => setDialogMode({ kind: "edit", repo })}>
+                    <span className="text-xs text-muted-foreground">{repo.enabled ? t("enabled") : t("disabled")}</span>
+                    <Button type="button" size="icon-xs" variant="ghost" className="ml-auto" aria-label={t("editRepo")} onClick={() => setDialogMode({ kind: "edit", repo })}>
                       <PencilIcon />
                     </Button>
-                    <Button type="button" size="icon-xs" variant="ghost" aria-label="删除仓库" onClick={() => setPendingDelete(repo)}>
+                    <Button type="button" size="icon-xs" variant="ghost" aria-label={t("deleteRepo")} onClick={() => setPendingDelete(repo)}>
                       <Trash2Icon />
                     </Button>
                   </div>
@@ -270,13 +273,13 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
 
         <section className={columnClass(panel, "commits")}>
           <ColumnHeading
-            title="提交备注"
+            title={t("commitsHeading")}
             extra={
               hasMaterial ? (
                 <span className="text-xs text-muted-foreground">
-                  {includedCount} 条计入日志
-                  {failedCount > 0 ? ` · ${failedCount} 个失败` : ""}
-                  {sample ? " · 示例" : ""}
+                  {t("commitsIncluded", { count: includedCount })}
+                  {failedCount > 0 ? ` · ${t("commitsFailed", { count: failedCount })}` : ""}
+                  {sample ? ` · ${t("sampleBadge")}` : ""}
                 </span>
               ) : null
             }
@@ -284,7 +287,7 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
           <div className="min-h-0 flex-1 overflow-auto px-3 pb-4">
             {authors.length > 0 && settings ? (
               <div className="flex flex-wrap items-center gap-1.5 border-b border-border py-2">
-                <span className="text-xs text-muted-foreground">作者</span>
+                <span className="text-xs text-muted-foreground">{t("authors")}</span>
                 {authors.map((author) => {
                   const mine = matchesAuthor(author, settings.myAuthors);
                   return (
@@ -303,7 +306,7 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                       }}
                     >
                       {author}
-                      {mine ? " · 我" : " · 标为我"}
+                      {mine ? ` · ${t("me")}` : ` · ${t("markAsMe")}`}
                     </button>
                   );
                 })}
@@ -312,29 +315,25 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
 
             {!hasMaterial && !fetching ? (
               <div className="py-10">
-                <p className="font-serif text-2xl">今天的备注还在各个仓库里</p>
-                <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                  点右上角「拉取提交」。勾掉不该写进日报的记录，右边就是可以交到钉钉的日志。连不上公司 SVN 时，也可以把
-                  <span className="font-mono text-xs"> svn log </span>
-                  的文本粘贴进来。
-                </p>
+                <p className="font-serif text-2xl">{t("emptyCommitsTitle")}</p>
+                <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">{t("emptyCommitsBody")}</p>
                 <Button type="button" variant="outline" className="mt-4" onClick={showSample}>
-                  先用示例看日志长什么样
+                  {t("showSample")}
                 </Button>
               </div>
             ) : null}
 
-            {fetching && !hasMaterial ? <p className="py-8 text-sm text-muted-foreground">正在逐个仓库读取今天的备注…</p> : null}
+            {fetching && !hasMaterial ? <p className="py-8 text-sm text-muted-foreground">{t("fetchingRepos")}</p> : null}
 
             {sample ? (
               <p className="mt-3 rounded-md bg-accent px-3 py-2 text-sm text-muted-foreground">
-                这是一份示例，作者是 zhangsan 和 lisi。添加真实仓库后点「拉取提交」就会换成你的记录。
+                {t("sampleHint")}
               </p>
             ) : null}
 
             {hasMaterial && activeLogs.every((repo) => repo.ok && shownCommits(repo).length === 0) ? (
               <p className="py-8 text-sm leading-6 text-muted-foreground">
-                这一天没有要写进日志的提交。换一天看看，或确认地址指到了有人在提交的目录。
+                {t("noCommitsToday")}
               </p>
             ) : null}
 
@@ -346,8 +345,8 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                     <header className="flex items-baseline justify-between gap-3">
                       <h3 className="font-serif text-lg">{repo.name}</h3>
                       <span className="text-xs text-muted-foreground">
-                        {repo.ok ? `${commits.length} 条` : "失败"}
-                        {repo.source === "paste" ? " · 粘贴" : ""}
+                        {repo.ok ? `${commits.length}` : t("failed")}
+                        {repo.source === "paste" ? ` · ${t("pasted")}` : ""}
                       </span>
                     </header>
                     {!repo.ok ? (
@@ -364,12 +363,12 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                           }}
                         >
                           <ClipboardPasteIcon />
-                          改为粘贴 svn log
+                          {t("pasteInstead")}
                         </Button>
                       </div>
                     ) : null}
                     {repo.ok && commits.length === 0 ? (
-                      <p className="mt-1 text-sm text-muted-foreground">今天没有提交。</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{t("noCommits")}</p>
                     ) : null}
                     <ul className="mt-1">
                       {commits.map((commit) => {
@@ -379,7 +378,7 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                             <Checkbox
                               checked={included}
                               onCheckedChange={(checked) => toggleExcluded(repo.repoId, commit.revision, checked === true)}
-                              aria-label={`把 r${commit.revision} 计入日志`}
+                              aria-label={t("includeCommit", { revision: commit.revision })}
                             />
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
@@ -388,15 +387,15 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                                 <span>{commit.author}</span>
                               </div>
                               <p className={cn("mt-1 whitespace-pre-wrap text-sm leading-6", !included && "line-through")}>
-                                {commit.message.trim() || "（这条提交没有写备注）"}
+                                {commit.message.trim() || t("emptyMessage")}
                               </p>
                               {commit.paths.length > 0 ? (
                                 <details className="mt-1">
-                                  <summary className="cursor-pointer text-xs text-muted-foreground">{commit.paths.length} 个文件</summary>
+                                  <summary className="cursor-pointer text-xs text-muted-foreground">{t("filesCount", { count: commit.paths.length })}</summary>
                                   <ul className="mt-1 space-y-0.5 font-mono text-[11px] leading-5 text-muted-foreground">
                                     {commit.paths.map((item) => (
                                       <li key={`${item.action}-${item.path}`} className="truncate">
-                                        <span className="mr-2 text-foreground/70">{actionLabel(item.action)}</span>
+                                        <span className="mr-2 text-foreground/70">{actionLabel(item.action, locale)}</span>
                                         {item.path}
                                       </li>
                                     ))}
@@ -417,7 +416,7 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                           if (found) setPasteRepo(found);
                         }}
                       >
-                        用粘贴的 svn log 替换这里
+                        {t("replaceWithPaste")}
                       </button>
                     ) : null}
                   </article>
@@ -428,17 +427,17 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
         </section>
 
         <section className={columnClass(panel, "log")}>
-          <ColumnHeading title="钉钉日志" />
+          <ColumnHeading title={t("dingLog")} />
           <div className="min-h-0 flex-1 space-y-3 overflow-auto px-3 py-2">
             {previewDiffers ? (
               <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-                <p className="text-foreground">勾选或筛选已经变了，生成栏还是旧内容。</p>
+                <p className="text-foreground">{t("previewDiffersTitle")}</p>
                 <button
                   type="button"
                   className="mt-1 font-medium text-primary underline-offset-2 hover:underline"
                   onClick={() => requestGenerate(false)}
                 >
-                  按现在的提交重新生成「{generatedSection?.title ?? "今日完成"}」
+                  {t("regenerate", { title: generatedSection?.title ?? t("todayWork") })}
                 </button>
               </div>
             ) : null}
@@ -450,17 +449,17 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="text-sm font-medium">{section.title}</span>
                     <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {section.role === "generated" ? "由提交生成" : "自己写"}
-                      <span className={count > 1000 ? "text-destructive" : undefined}>{count} 字</span>
+                      {section.role === "generated" ? t("generatedRole") : t("manualRole")}
+                      <span className={count > 1000 ? "text-destructive" : undefined}>{t("chars", { count })}</span>
                       <button
                         type="button"
                         className="underline-offset-2 hover:underline"
                         onClick={(event) => {
                           event.preventDefault();
-                          void copyText(body.trim() || "无", `已复制「${section.title}」`);
+                          void copyText(body.trim() || t("none"), t("toastCopiedSection", { title: section.title }));
                         }}
                       >
-                        复制此栏
+                        {t("copySection")}
                       </button>
                     </span>
                   </span>
@@ -474,8 +473,8 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
                     }}
                     placeholder={
                       section.role === "generated"
-                        ? "拉取之后这里会按项目列出备注，可以直接改。"
-                        : "没有就留空，复制和提交时会写成「无」。"
+                        ? t("generatedPlaceholder")
+                        : t("manualPlaceholder")
                     }
                     className="mt-1 min-h-28 resize-y bg-card"
                   />
@@ -483,7 +482,7 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
               );
             })}
             <p className="text-xs leading-5 text-muted-foreground">
-              复制后到钉钉日志里粘贴即可，不需要额外权限。单栏超过 1000 字时，开放接口会截断，粘贴不受这个限制。
+              {t("copyHint")}
             </p>
           </div>
           <div className="grid gap-2 border-t border-border p-3">
@@ -493,36 +492,36 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
               disabled={!draft || !settings}
               onClick={() => {
                 if (!settings || !draft) return;
-                void copyText(composeFullLog(settings.sections, draft.bodies), copying ? "已复制" : "已复制全文，到钉钉日志里粘贴");
+                void copyText(composeFullLog(settings.sections, draft.bodies, locale), copying ? t("copied") : t("copiedFull"));
               }}
             >
               <CopyIcon />
-              复制全文
+              {t("copyFull")}
             </Button>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
-                title={dingReady ? "按日志模板直接提交" : "先在设置里读取钉钉日志模板"}
+                title={dingReady ? t("submitReady") : t("submitNeedSetup")}
                 disabled={!dingReady || submitting}
                 onClick={() => void submitLog()}
               >
                 <SendIcon />
-                {submitting ? "提交中…" : "提交到钉钉"}
+                {submitting ? t("submitting") : t("submitDing")}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                title={webhookReady ? "发到钉钉群，不是个人日志" : "先在设置里填写群机器人地址"}
+                title={webhookReady ? t("webhookReady") : t("webhookNeedSetup")}
                 disabled={!webhookReady || sendingGroup}
                 onClick={() => void sendGroup()}
               >
-                {sendingGroup ? "发送中…" : "发到群里"}
+                {sendingGroup ? t("sending") : t("sendGroup")}
               </Button>
             </div>
             {!dingReady ? (
               <p className="text-xs text-muted-foreground">
-                直接提交需要在设置里配好企业内部应用和日志模板。大多数时候，复制全文就够了。
+                {t("submitHint")}
               </p>
             ) : null}
           </div>
@@ -563,13 +562,13 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
       <AlertDialog open={pendingDelete != null} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除「{pendingDelete?.name}」？</AlertDialogTitle>
-            <AlertDialogDescription>只从日摘里去掉这个仓库，SVN 上的提交不会受影响。</AlertDialogDescription>
+            <AlertDialogTitle>{t("deleteRepoTitle", { name: pendingDelete?.name ?? "" })}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteRepoBody")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>留下</AlertDialogCancel>
+            <AlertDialogCancel>{t("keep")}</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={() => pendingDelete && void removeRepo(pendingDelete)}>
-              删除
+              {t("delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -578,20 +577,20 @@ export function DigestApp({ initialToday }: { initialToday: string }) {
       <AlertDialog open={confirmGenerate} onOpenChange={setConfirmGenerate}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>覆盖已经改过的内容？</AlertDialogTitle>
+            <AlertDialogTitle>{t("overwriteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              「{generatedSection?.title ?? "今日完成"}」里有你手改的句子。重新生成会用当前勾选的提交备注替换这一栏。
+              {t("overwriteBody", { title: generatedSection?.title ?? t("todayWork") })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>留着我的修改</AlertDialogCancel>
+            <AlertDialogCancel>{t("keepEdits")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setConfirmGenerate(false);
                 requestGenerate(true);
               }}
             >
-              覆盖
+              {t("overwrite")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -642,6 +641,7 @@ function PasteDialog({
   onOpenChange: (open: boolean) => void;
   onPaste: (text: string) => void;
 }) {
+  const { locale, t } = useLocale();
   const [text, setText] = useState("");
   const range = svnRevisionRange(date, timezone);
 
@@ -649,9 +649,9 @@ function PasteDialog({
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>粘贴「{repo.name}」的 svn log</DialogTitle>
+          <DialogTitle>{t("pasteTitle", { name: repo.name })}</DialogTitle>
           <DialogDescription>
-            在能连上仓库的电脑上执行下面的命令，把输出整段贴进来。日摘会只留下 {formatLongDate(date)} 的提交。
+            {t("pasteBody", { date: formatLongDate(date, locale) })}
           </DialogDescription>
         </DialogHeader>
         <pre className="overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
@@ -665,10 +665,10 @@ function PasteDialog({
         />
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t("cancel")}
           </Button>
           <Button type="button" onClick={() => onPaste(text)}>
-            读入这一天
+            {t("readPaste")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -34,9 +34,18 @@ export function shiftDate(date: string, days: number): string {
   return utc.toISOString().slice(0, 10);
 }
 
-export function formatLongDate(date: string): string {
+export function formatLongDate(date: string, locale: "zh" | "en" = "zh"): string {
   const [year, month, day] = date.split("-").map(Number);
   const utc = new Date(Date.UTC(year, month - 1, day));
+  if (locale === "en") {
+    return utc.toLocaleDateString("en-US", {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  }
   const weeks = ["日", "一", "二", "三", "四", "五", "六"];
   return `${year}年${month}月${day}日 周${weeks[utc.getUTCDay()]}`;
 }

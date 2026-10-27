@@ -8,11 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useLocale } from "@/components/locale-provider";
 import { ApiError, api } from "@/lib/client";
-import { TIMEZONES } from "@/lib/defaults";
+import { timezoneOptions } from "@/lib/defaults";
+import { LOCALES, type Locale } from "@/lib/i18n";
 import type { FieldBinding, LogSection, SettingsPublic } from "@/lib/types";
 
 export function SettingsApp() {
+  const { t, locale, setLocale } = useLocale();
   const [form, setForm] = useState<SettingsPublic | null>(null);
   const [appSecret, setAppSecret] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
@@ -28,11 +31,20 @@ export function SettingsApp() {
         if (!cancelled) setForm(data.settings);
       })
       .catch((reason: unknown) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : "设置没有读出来");
+        if (!cancelled) setError(reason instanceof Error ? reason.message : t("toastLoadSettings"));
       });
     return () => {
       cancelled = true;
     };
+  }, [t]);
+
+  useEffect(() => {
+    function onSettings(event: Event) {
+      const detail = (event as CustomEvent<SettingsPublic>).detail;
+      if (detail) setForm(detail);
+    }
+    window.addEventListener("rizhai:settings", onSettings);
+    return () => window.removeEventListener("rizhai:settings", onSettings);
   }, []);
 
   async function save(current = form) {
@@ -55,7 +67,7 @@ export function SettingsApp() {
       if (webhookSecret) setWebhookSecret("");
       return data.settings;
     } catch (reason) {
-      toast.error(reason instanceof ApiError ? reason.message : "没有保存");
+      toast.error(reason instanceof ApiError ? reason.message : t("toastSaveFail"));
       return null;
     } finally {
       setSaving(false);
@@ -77,9 +89,9 @@ export function SettingsApp() {
         }),
       });
       setForm(data.settings);
-      toast.success(`已读到模板「${data.settings.dingtalk.templateName}」`);
+      toast.success(t("toastTemplateOk", { name: data.settings.dingtalk.templateName }));
     } catch (reason) {
-      toast.error(reason instanceof ApiError ? reason.message : "没有读到模板");
+      toast.error(reason instanceof ApiError ? reason.message : t("toastTemplateFail"));
     } finally {
       setReading(false);
     }
@@ -89,7 +101,7 @@ export function SettingsApp() {
     return <p className="mx-auto max-w-3xl px-4 py-10 text-sm text-destructive">{error}</p>;
   }
   if (!form) {
-    return <p className="mx-auto max-w-3xl px-4 py-10 text-sm text-muted-foreground">正在读取设置…</p>;
+    return <p className="mx-auto max-w-3xl px-4 py-10 text-sm text-muted-foreground">{t("loadingSettings")}</p>;
   }
 
   const generatedId = form.sections.find((section) => section.role === "generated")?.id;
@@ -97,16 +109,38 @@ export function SettingsApp() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
       <div>
-        <h1 className="font-serif text-3xl">设置</h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          仓库密码和钉钉密钥只写在这台电脑的 data 目录，不会进代码仓库。每天交日志，复制全文就够用；下面的接口是给想一键提交的人准备的。
-        </p>
+        <h1 className="font-serif text-3xl">{t("settingsTitle")}</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("settingsIntro")}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>我的提交</CardTitle>
-          <CardDescription>只看我的时候，按这些 SVN 用户名过滤。大小写不敏感。</CardDescription>
+          <CardTitle>{t("languageCard")}</CardTitle>
+          <CardDescription>{t("languageCardDesc")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+            {LOCALES.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                className={`rounded-md px-3 py-1.5 text-sm ${locale === item.value ? "bg-foreground text-background" : "text-muted-foreground"}`}
+                onClick={() => {
+                  if (item.value === locale) return;
+                  void setLocale(item.value as Locale);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("myCommits")}</CardTitle>
+          <CardDescription>{t("myCommitsDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <form
@@ -123,13 +157,13 @@ export function SettingsApp() {
               setAuthor("");
             }}
           >
-            <Input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="SVN 用户名" />
+            <Input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder={t("svnUsername")} />
             <Button type="submit" variant="outline">
-              添加
+              {t("add")}
             </Button>
           </form>
           <div className="flex flex-wrap gap-2">
-            {form.myAuthors.length === 0 ? <span className="text-sm text-muted-foreground">还没有。也可以在今天的页面里，点作者名字标成我。</span> : null}
+            {form.myAuthors.length === 0 ? <span className="text-sm text-muted-foreground">{t("noAuthors")}</span> : null}
             {form.myAuthors.map((name) => (
               <button
                 key={name}
@@ -139,20 +173,20 @@ export function SettingsApp() {
               >
                 {name}
                 <XIcon className="size-3" />
-                <span className="sr-only">移除</span>
+                <span className="sr-only">{t("remove")}</span>
               </button>
             ))}
           </div>
           <div className="grid gap-1.5 sm:max-w-xs">
-            <span className="text-sm font-medium">时区</span>
+            <span className="text-sm font-medium">{t("timezone")}</span>
             <Select value={form.timezone} onValueChange={(timezone) => setForm({ ...form, timezone })}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TIMEZONES.map((item) => (
+                {timezoneOptions(locale).map((item) => (
                   <SelectItem key={item.value} value={item.value}>
-                    {item.label}
+                    {t(item.key)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -161,28 +195,28 @@ export function SettingsApp() {
           <Toggle
             checked={form.includeRevision}
             onCheckedChange={(includeRevision) => setForm({ ...form, includeRevision })}
-            title="备注后面带上版本号"
-            description="例如「修复导出空指针（r1842）」。"
+            title={t("includeRevision")}
+            description={t("includeRevisionDesc")}
           />
           <Toggle
             checked={form.showEmptyRepos}
             onCheckedChange={(showEmptyRepos) => setForm({ ...form, showEmptyRepos })}
-            title="没有提交的仓库也写一行"
-            description="日志里会出现「今日无提交」，方便确认每个项目都看过。"
+            title={t("showEmptyRepos")}
+            description={t("showEmptyReposDesc")}
           />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>日志栏目</CardTitle>
-          <CardDescription>和钉钉模板里的字段用同样的名字，复制进去时不用再对一遍。</CardDescription>
+          <CardTitle>{t("logSections")}</CardTitle>
+          <CardDescription>{t("logSectionsDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           {form.sections.map((section, index) => (
             <div key={section.id} className="grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-[1fr_9rem_auto]">
               <Input
-                aria-label="栏目名称"
+                aria-label={t("sectionName")}
                 value={section.title}
                 onChange={(event) => updateSection(section.id, { title: event.target.value })}
               />
@@ -194,19 +228,19 @@ export function SettingsApp() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="generated">由提交生成</SelectItem>
-                  <SelectItem value="manual">自己写</SelectItem>
+                  <SelectItem value="generated">{t("generatedRole")}</SelectItem>
+                  <SelectItem value="manual">{t("manualRole")}</SelectItem>
                 </SelectContent>
               </Select>
               <div className="flex items-center gap-1">
-                <Button type="button" size="icon-sm" variant="ghost" aria-label="上移" disabled={index === 0} onClick={() => moveSection(index, -1)}>
+                <Button type="button" size="icon-sm" variant="ghost" aria-label={t("moveUp")} disabled={index === 0} onClick={() => moveSection(index, -1)}>
                   <ChevronUpIcon />
                 </Button>
                 <Button
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  aria-label="下移"
+                  aria-label={t("moveDown")}
                   disabled={index === form.sections.length - 1}
                   onClick={() => moveSection(index, 1)}
                 >
@@ -216,7 +250,7 @@ export function SettingsApp() {
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  aria-label="删除栏目"
+                  aria-label={t("deleteSection")}
                   disabled={form.sections.length === 1}
                   onClick={() => setForm({ ...form, sections: form.sections.filter((item) => item.id !== section.id) })}
                 >
@@ -234,46 +268,44 @@ export function SettingsApp() {
                 ...form,
                 sections: [
                   ...form.sections,
-                  { id: `s${crypto.randomUUID().slice(0, 8)}`, title: "新栏目", role: "manual" },
+                  { id: `s${crypto.randomUUID().slice(0, 8)}`, title: t("newSection"), role: "manual" },
                 ],
               })
             }
           >
             <PlusIcon />
-            加一栏
+            {t("addSection")}
           </Button>
-          {generatedId ? null : <p className="text-sm text-destructive">至少把一栏设成「由提交生成」，否则拉取之后没有地方可填。</p>}
+          {generatedId ? null : <p className="text-sm text-destructive">{t("needGenerated")}</p>}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>直接提交到钉钉日志</CardTitle>
-          <CardDescription>
-            在钉钉开放平台建一个企业内部应用，开通「查询企业员工日志」和「管理员工日志数据」，发布之后把 AppKey、AppSecret 填在这里。userId 在管理后台的通讯录里。模板名称要和日志模板一字不差，很多公司就叫「日报」。
-          </CardDescription>
+          <CardTitle>{t("dingSubmit")}</CardTitle>
+          <CardDescription>{t("dingSubmitDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           <Field label="AppKey">
             <Input value={form.dingtalk.appKey} onChange={(event) => patchDing({ appKey: event.target.value })} spellCheck={false} />
           </Field>
-          <Field label="AppSecret" hint={form.dingtalk.hasAppSecret ? "已保存。要更换再填写，留空不会清掉。" : "还没有保存。"}>
+          <Field label="AppSecret" hint={form.dingtalk.hasAppSecret ? t("secretSaved") : t("secretMissing")}>
             <Input type="password" value={appSecret} onChange={(event) => setAppSecret(event.target.value)} autoComplete="new-password" />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="我的 userId">
+            <Field label={t("myUserId")}>
               <Input value={form.dingtalk.userId} onChange={(event) => patchDing({ userId: event.target.value })} spellCheck={false} />
             </Field>
-            <Field label="模板名称">
+            <Field label={t("templateName")}>
               <Input value={form.dingtalk.templateName} onChange={(event) => patchDing({ templateName: event.target.value })} />
             </Field>
           </div>
           <Button type="button" variant="outline" className="w-fit" disabled={reading || saving} onClick={() => void readTemplate()}>
-            {reading ? "正在读取…" : "保存并读取模板"}
+            {reading ? t("readingTemplate") : t("saveReadTemplate")}
           </Button>
           {form.dingtalk.fields.length > 0 ? (
             <div className="grid gap-3">
-              <p className="text-sm text-muted-foreground">模板编号 {form.dingtalk.templateId}。每个字段对应日志里的哪一栏：</p>
+              <p className="text-sm text-muted-foreground">{t("templateFields", { id: form.dingtalk.templateId })}</p>
               {form.dingtalk.fields.map((field) => {
                 const binding = form.dingtalk.bindings[field.fieldName];
                 const value = bindingValue(binding);
@@ -281,20 +313,20 @@ export function SettingsApp() {
                   <div key={field.fieldName} className="grid gap-2 sm:grid-cols-[1fr_12rem]">
                     <div className="text-sm">
                       <div className="font-medium">{field.fieldName}</div>
-                      <div className="text-xs text-muted-foreground">{field.type === 1 ? "文本，可以写入" : "不是文本，接口写不了"}</div>
+                      <div className="text-xs text-muted-foreground">{field.type === 1 ? t("fieldText") : t("fieldNonText")}</div>
                     </div>
                     <Select value={value} onValueChange={(next) => setBinding(field.fieldName, next)} disabled={field.type !== 1}>
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">固定写「无」</SelectItem>
+                        <SelectItem value="none">{t("bindNone")}</SelectItem>
                         {form.sections.map((section) => (
                           <SelectItem key={section.id} value={section.id}>
                             {section.title}
                           </SelectItem>
                         ))}
-                        <SelectItem value="custom">自定义一句</SelectItem>
+                        <SelectItem value="custom">{t("bindCustom")}</SelectItem>
                       </SelectContent>
                     </Select>
                     {binding?.mode === "custom" ? (
@@ -311,23 +343,21 @@ export function SettingsApp() {
               })}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">还没有模板字段。读取成功之后，才能在今天的页面直接提交。</p>
+            <p className="text-sm text-muted-foreground">{t("noTemplateFields")}</p>
           )}
           <Toggle
             checked={form.dingtalk.toChat}
             onCheckedChange={(toChat) => patchDing({ toChat })}
-            title="提交时给接收人发单聊通知"
-            description="关掉的话，日志仍然会写上，只是不额外弹一条聊天消息。"
+            title={t("toChat")}
+            description={t("toChatDesc")}
           />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>发到钉钉群</CardTitle>
-          <CardDescription>
-            这是群机器人，不是个人工作日志。适合再往项目群丢一份相同的文字。如果机器人开了加签，把密钥填上；如果设了关键词，也写在这里。
-          </CardDescription>
+          <CardTitle>{t("groupRobot")}</CardTitle>
+          <CardDescription>{t("groupRobotDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           <Field label="Webhook">
@@ -339,10 +369,10 @@ export function SettingsApp() {
             />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="加签密钥" hint={form.dingtalk.hasWebhookSecret ? "已保存，留空则不改。" : ""}>
+            <Field label={t("signSecret")} hint={form.dingtalk.hasWebhookSecret ? t("signSecretSaved") : ""}>
               <Input type="password" value={webhookSecret} onChange={(event) => setWebhookSecret(event.target.value)} autoComplete="new-password" />
             </Field>
-            <Field label="关键词">
+            <Field label={t("keyword")}>
               <Input value={form.dingtalk.webhookKeyword} onChange={(event) => patchDing({ webhookKeyword: event.target.value })} />
             </Field>
           </div>
@@ -350,8 +380,8 @@ export function SettingsApp() {
       </Card>
 
       <div className="flex justify-end pb-6">
-        <Button type="button" size="lg" disabled={saving} onClick={() => void save().then((saved) => saved && toast.success("设置已保存"))}>
-          {saving ? "保存中…" : "保存设置"}
+        <Button type="button" size="lg" disabled={saving} onClick={() => void save().then((saved) => saved && toast.success(t("toastSettingsSaved")))}>
+          {saving ? t("saving") : t("saveSettings")}
         </Button>
       </div>
     </div>

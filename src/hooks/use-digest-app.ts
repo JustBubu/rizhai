@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useLocale } from "@/components/locale-provider";
 import { ApiError, api } from "@/lib/client";
 import { calendarDate, dateInTimezone, formatLongDate } from "@/lib/dates";
 import { parseSvnLog } from "@/lib/parse-svn";
@@ -19,6 +20,7 @@ export type Panel = "repos" | "commits" | "log";
 export type DialogMode = { kind: "create" } | { kind: "edit"; repo: RepoPublic };
 
 export function useDigestApp(initialToday: string) {
+  const { locale, t } = useLocale();
   const [settings, setSettings] = useState<SettingsPublic | null>(null);
   const [repos, setRepos] = useState<RepoPublic[] | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -52,12 +54,21 @@ export function useDigestApp(initialToday: string) {
         setRepos(repoData.repos);
         setSettings(settingsData.settings);
       } catch (error) {
-        if (!cancelled) setLoadError(error instanceof Error ? error.message : "配置没有读出来");
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : t("toastLoadConfig"));
       }
     })();
     return () => {
       cancelled = true;
     };
+  }, [t]);
+
+  useEffect(() => {
+    function onSettings(event: Event) {
+      const detail = (event as CustomEvent<SettingsPublic>).detail;
+      if (detail) setSettings(detail);
+    }
+    window.addEventListener("rizhai:settings", onSettings);
+    return () => window.removeEventListener("rizhai:settings", onSettings);
   }, []);
 
   useEffect(() => {
@@ -70,25 +81,25 @@ export function useDigestApp(initialToday: string) {
         setDraft(data.draft);
         ready.current = true;
       } catch (error) {
-        if (!cancelled) toast.error(error instanceof Error ? error.message : "这一天的草稿没有读出来");
+        if (!cancelled) toast.error(error instanceof Error ? error.message : t("toastLoadDraft"));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [date, t]);
 
   useEffect(() => {
     if (!draft || !ready.current) return;
     const handle = window.setTimeout(() => {
       void api("/api/drafts", { method: "PUT", body: JSON.stringify(draft) }).catch((error: unknown) => {
-        toast.error(error instanceof Error ? error.message : "草稿没有保存");
+        toast.error(error instanceof Error ? error.message : t("toastSaveDraft"));
       });
     }, 450);
     return () => window.clearTimeout(handle);
-  }, [draft]);
+  }, [draft, t]);
 
-  const activeLogs = sample ? sampleLogs() : logDate === date ? (logs ?? []) : [];
+  const activeLogs = sample ? sampleLogs(locale) : logDate === date ? (logs ?? []) : [];
   const hasMaterial = sample || (logDate === date && logs != null);
 
   function optionsFrom(current: SettingsPublic, excluded: string[]): SummaryOptions {
@@ -99,6 +110,7 @@ export function useDigestApp(initialToday: string) {
       includeRevision: current.includeRevision,
       showEmptyRepos: current.showEmptyRepos,
       excluded: new Set(excluded),
+      locale: current.locale ?? locale,
     };
   }
 
@@ -109,7 +121,7 @@ export function useDigestApp(initialToday: string) {
   ): boolean {
     const section = settings?.sections.find((item) => item.role === "generated");
     if (!section) {
-      toast.error("设置里没有「由提交生成」的栏目。");
+      toast.error(t("toastNoGenerated"));
       return false;
     }
     let skipped = false;
@@ -155,10 +167,10 @@ export function useDigestApp(initialToday: string) {
       setLogDate(date);
       regenerateFrom(result.repos, false);
       const failed = result.repos.filter((repo) => !repo.ok).length;
-      if (failed > 0) toast.warning(`${failed} 个仓库没拉下来，其余的已经收好了。`);
+      if (failed > 0) toast.warning(t("toastPullPartial", { count: failed }));
       setPanel("commits");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "拉取失败");
+      toast.error(error instanceof ApiError ? error.message : t("toastPullFail"));
     } finally {
       setFetching(false);
     }
@@ -168,12 +180,12 @@ export function useDigestApp(initialToday: string) {
     if (!settings) return;
     setSample(true);
     setPanel("log");
-    regenerateFrom(sampleLogs(), false);
+    regenerateFrom(sampleLogs(locale), false);
   }
 
   function requestGenerate(force: boolean) {
     if (!settings || !hasMaterial) {
-      toast.error("先拉取提交，或看一遍示例。");
+      toast.error(t("toastNeedMaterial"));
       return;
     }
     regenerateFrom(activeLogs, force);
@@ -191,7 +203,7 @@ export function useDigestApp(initialToday: string) {
         regenerateFrom(activeLogs, false);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "设置没有保存");
+      toast.error(error instanceof ApiError ? error.message : t("toastSaveSettingsFail"));
     }
   }
 
@@ -202,7 +214,7 @@ export function useDigestApp(initialToday: string) {
       toast.success(message);
       window.setTimeout(() => setCopying(false), 1600);
     } catch {
-      toast.error("浏览器没有允许复制，可以选中文本手动复制。");
+      toast.error(t("toastCopyDenied"));
     }
   }
 
@@ -221,7 +233,7 @@ export function useDigestApp(initialToday: string) {
       });
       toast.success(data.message);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "没有提交成功");
+      toast.error(error instanceof ApiError ? error.message : t("toastSubmitFail"));
     } finally {
       setSubmitting(false);
     }
@@ -235,12 +247,12 @@ export function useDigestApp(initialToday: string) {
         method: "POST",
         body: JSON.stringify({
           date,
-          text: composeFullLog(settings.sections, draft.bodies),
+          text: composeFullLog(settings.sections, draft.bodies, locale),
         }),
       });
       toast.success(data.message);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "没有发到群里");
+      toast.error(error instanceof ApiError ? error.message : t("toastGroupFail"));
     } finally {
       setSendingGroup(false);
     }
@@ -298,7 +310,7 @@ export function useDigestApp(initialToday: string) {
       setRepos((list) => list?.map((item) => (item.id === data.repo.id ? data.repo : item)) ?? list);
     } catch (error) {
       setRepos((list) => list?.map((item) => (item.id === repo.id ? repo : item)) ?? list);
-      toast.error(error instanceof ApiError ? error.message : "没有改成");
+      toast.error(error instanceof ApiError ? error.message : t("toastToggleFail"));
     }
   }
 
@@ -307,9 +319,9 @@ export function useDigestApp(initialToday: string) {
       await api(`/api/repos/${repo.id}`, { method: "DELETE" });
       setRepos((list) => list?.filter((item) => item.id !== repo.id) ?? []);
       setLogs((list) => list?.filter((item) => item.repoId !== repo.id) ?? list);
-      toast.success(`已删除「${repo.name}」`);
+      toast.success(t("toastDeleted", { name: repo.name }));
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "没有删除");
+      toast.error(error instanceof ApiError ? error.message : t("toastDeleteFail"));
     } finally {
       setPendingDelete(null);
     }
@@ -319,7 +331,7 @@ export function useDigestApp(initialToday: string) {
     if (!settings) return;
     const parsed = parseSvnLog(text);
     if (parsed.length === 0) {
-      toast.error("没有识别到提交。请粘贴 svn log 的原文，从一行横线开始。");
+      toast.error(t("toastPasteEmpty"));
       return;
     }
     const commits = parsed
@@ -329,7 +341,7 @@ export function useDigestApp(initialToday: string) {
       })
       .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
     if (commits.length === 0) {
-      toast.error(`这 ${parsed.length} 条都不在 ${formatLongDate(date)}。换一下日期再粘贴。`);
+      toast.error(t("toastPasteWrongDay", { count: parsed.length, date: formatLongDate(date, locale) }));
       return;
     }
     const entry: RepoLog = {
@@ -351,7 +363,7 @@ export function useDigestApp(initialToday: string) {
     setPasteRepo(null);
     setPanel("commits");
     regenerateFrom(nextLogs, false);
-    toast.success(`「${repo.name}」读入 ${commits.length} 条备注`);
+    toast.success(t("toastPasteOk", { name: repo.name, count: commits.length }));
   }
 
   const generatedPreview =
@@ -426,6 +438,8 @@ export function useDigestApp(initialToday: string) {
     toggleEnabled,
     removeRepo,
     applyPaste,
+    locale,
+    t,
   };
 }
 

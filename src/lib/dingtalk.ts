@@ -114,11 +114,12 @@ export function guessBinding(fieldName: string, sections: LogSection[]): FieldBi
 export function contentForField(
   binding: FieldBinding | undefined,
   sections: { id: string; body: string }[],
+  emptyLabel = "无",
 ): string {
-  if (!binding || binding.mode === "none") return "无";
-  if (binding.mode === "custom") return binding.text.trim() || "无";
+  if (!binding || binding.mode === "none") return emptyLabel;
+  if (binding.mode === "custom") return binding.text.trim() || emptyLabel;
   const section = sections.find((item) => item.id === binding.sectionId);
-  return section?.body.trim() || "无";
+  return section?.body.trim() || emptyLabel;
 }
 
 export async function createReport(input: {

@@ -51,6 +51,7 @@ export type DingTalkSettings = {
 };
 
 export type Settings = {
+  locale: "zh" | "en";
   myAuthors: string[];
   timezone: string;
   includeRevision: boolean;

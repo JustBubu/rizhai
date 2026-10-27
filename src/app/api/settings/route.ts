@@ -1,6 +1,7 @@
 import { beginRequest, errorResponse } from "@/lib/http";
 import { toPublicSettings } from "@/lib/public";
 import { isTimezone } from "@/lib/dates";
+import { isLocale } from "@/lib/i18n";
 import { loadSettings, updateSettings } from "@/lib/store";
 import type { FieldBinding, LogSection, Settings } from "@/lib/types";
 
@@ -88,6 +89,7 @@ export async function PUT(request: Request) {
         bindings[key.slice(0, 40)] = cleanBinding(binding);
       }
       const merged: Settings = {
+        locale: body.locale !== undefined && isLocale(body.locale) ? body.locale : current.locale,
         myAuthors: body.myAuthors === undefined ? current.myAuthors : cleanAuthors(body.myAuthors),
         timezone,
         includeRevision: body.includeRevision ?? current.includeRevision,

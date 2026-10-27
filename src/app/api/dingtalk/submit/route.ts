@@ -19,8 +19,9 @@ export async function POST(request: Request) {
     }
     const textFields = ding.fields.filter((field) => field.type === 1);
     if (textFields.length === 0) throw new Error("这个模板里没有文本字段，接口无法写入。");
+    const emptyLabel = settings.locale === "en" ? "None" : "无";
     const contents = textFields.map((field) => {
-      const content = contentForField(ding.bindings[field.fieldName], sections);
+      const content = contentForField(ding.bindings[field.fieldName], sections, emptyLabel);
       return { key: field.fieldName, sort: field.sort, type: field.type, content };
     });
     const tooLong = contents.find((item) => overLimit(item.content));
