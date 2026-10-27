@@ -38,24 +38,28 @@ sudo apt install subversion
 ```bash
 git clone https://github.com/ZhaoNan7/rizhai.git
 cd rizhai
-npm install
+```
+
+Then start it the easy way:
+
+| OS | How |
+|----|-----|
+| **Windows** | Double-click `start.cmd` |
+| **macOS / Linux** | `chmod +x start.sh && ./start.sh` |
+
+The script installs dependencies on first run, opens the browser, and serves [http://127.0.0.1:43123](http://127.0.0.1:43123).
+
+Same thing from a terminal after the first install:
+
+```bash
 npm run dev
 ```
 
-Open [http://127.0.0.1:43123](http://127.0.0.1:43123).
-
-Production-style run (still localhost only by default):
+### Other modes
 
 ```bash
-npm run build
-npm start
-```
-
-LAN bind (no login — do not expose to the public internet):
-
-```bash
-npm run build
-npm run start:lan
+npm run build && npm start      # production build, localhost only
+npm run build && npm run start:lan   # LAN bind — no login, do not expose publicly
 ```
 
 ## Daily workflow
@@ -116,6 +120,7 @@ Optional environment variables:
 
 | Command | Description |
 |---------|-------------|
+| `start.cmd` / `./start.sh` | One-click install (if needed) + run |
 | `npm run dev` | Dev server on `127.0.0.1:43123` |
 | `npm run build` | Production build |
 | `npm start` | Serve build on localhost |
